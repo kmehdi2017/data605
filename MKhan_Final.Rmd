@@ -1,0 +1,674 @@
+---
+title: "Final Project, Data 605, Spring 2018"
+author: "Mehdi Khan"
+date: "May 17, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=65),tidy=TRUE)
+```
+
+load libraries 
+
+```{r}
+suppressMessages(suppressWarnings(library(ggplot2)))
+suppressMessages(suppressWarnings(library(gridExtra)))
+suppressMessages(suppressWarnings(library(scales)))
+suppressMessages(suppressWarnings(library(corrplot)))
+suppressMessages(suppressWarnings(library(RColorBrewer)))
+suppressMessages(suppressWarnings(library(Matrix)))
+suppressMessages(suppressWarnings(library(MASS)))
+```
+
+
+##Data:
+The data was downloaded from https://www.kaggle.com/c/house-prices-advanced-regression-techniques, 
+```{r}
+DF <- read.csv("train.csv",sep = ',',stringsAsFactors = FALSE)
+head(DF)
+```
+
+#### Pick one of the quantitative independent variables from the training data set (train.csv) , and define that variable as X. Make sure this variable is skewed to the right! Pick the dependent variable and define it as Y.
+
+The variable 'GrLivArea' was picked as the independent variable and defined as X and 'SalePrice' was picked as dependent variable and defined as Y
+```{r}
+X <- DF['GrLivArea']
+X <- X[!is.na(X)]
+
+Y  <- DF['SalePrice']
+Y <- Y[!is.na(Y)]
+
+#creating a dataframe with X and Y
+
+XYdf <- data.frame(cbind(X,Y))
+
+head(XYdf)
+
+```
+
+####Check if X variable is right skewed
+A histogram of X variable was created to see if the data was skewed to the right.
+```{r}
+
+ggplot(XYdf, aes(XYdf$X))+geom_histogram(col="red",fill="green",alpha=.2,binwidth =60 ) + labs(title="Histogram of X") + labs(x="X")
+```
+
+From the histogram it can be seen that the X variable is right skewed. 
+
+
+
+##Probability:
+####Calculate as a minimum the below probabilities a through c. Assume the small letter "x" is estimated as the 1st quartile of the X variable, and the small letter "y" is estimated as the 1st quartile of the Y variable. Interpret the meaning of all probabilities. In addition, make a table of counts.
+
+```{r}
+# a. P(X>x | Y>y) 
+# b. P(X>x, Y>y) 
+# c. P(X<x, | Y>y)
+
+```
+
+
+
+
+
+get the statistics of the variables:
+```{r}
+summary(XYdf)
+```
+
+The 1st quartile of the X variable = 1130
+The 1st quartile of the Y variable = 129975
+So, x = 1130 and y = 129975
+
+```{r}
+x <- 1130
+y <- 129975
+```
+
+
+we know P(A|B) = P(A and B)/P(B), by substituting  X>x and Y>y for A and B, we get
+
+P(X>x|Y>y) = P(X>x and Y>y)/P(Y>y)
+
+
+```{r}
+Prob_A1_and_B1 <- nrow(subset(XYdf,X>x & Y>y))/nrow(XYdf)
+Prob_A1 <- nrow(subset(XYdf,X>x))/nrow(XYdf)
+Prob_B1 <- nrow(subset(XYdf,Y>y))/nrow(XYdf)
+Prob_C1 <- nrow(subset(XYdf,X<x))/nrow(XYdf)
+Prob_C1_and_B1 <- nrow(subset(XYdf,X<x & Y>y))/nrow(XYdf)
+
+
+```
+
+### probability: a
+$P(X>x\quad |\quad Y>y)$
+```{r}
+# a. P(X>x | Y>y) 
+prob_A1_given_B1 <- Prob_A1_and_B1/Prob_B1
+print(prob_A1_given_B1)
+
+```
+ So P(X>x | Y>y) = .87 or 87%, which means that there is 87% probablity of X>x or Gross living area (GrLivArea) will be bigger than than it  1st quartile value of 1130 given that the Sale price (SalePrice) is bigger than its 1st quartile value of 129975.
+ 
+ 
+
+### probability: b
+ $P(X>x,\quad Y>y)$ :
+```{r}
+# b. P(X>x, Y>y)  
+print(Prob_A1_and_B1)
+```
+
+So  P(X>x, Y>y)  is 65.34%, which means that there is 65.34% probablity of having X>x or Gross living area (GrLivArea) is bigger than than it's  1st quartile value of 1130 while having  the Sale price (SalePrice)  bigger than its 1st quartile value of 129975.
+
+
+### probability: c
+ $P(X<x\quad |\quad Y>y)$
+```{r}
+###  c. P(X<x|Y>y)
+
+prob_C1_given_B1 <- Prob_C1_and_B1 /Prob_B1
+print(prob_C1_given_B1)
+
+```
+
+ The result for  c is  .1287671 or 12.88%, which means that there is 12.88% probablity of X less than x or Gross living area (GrLivArea) will be smaller than than it  1st quartile value of 1130 given that the Sale price (SalePrice) is bigger than its 1st quartile value of 129975.
+
+
+### Table of counts
+```{r}
+A1 <- c(sum(X <= x  & Y <= y),sum(X > x & Y <= y))
+B1 <- c(sum(X <= x & Y > y), sum(X > x & Y > y))
+ct_matrix <- matrix(c(A1,B1),nrow = 2)
+ct_matrix <- rbind(ct_matrix,apply(ct_matrix,2,sum))
+ct_matrix <- cbind(ct_matrix,apply(ct_matrix,1,sum))
+
+xy <- c('<=1st quartile','>1st quartile','Total')
+countDF <- data.frame(xy,ct_matrix)
+colnames(countDF) <- c('x/y','<=1st quartile','>1st quartile','Total')
+print(countDF)
+
+
+```
+
+
+
+### Does P(AB)=P(A)P(B)?
+Let A be the new variable counting those observations above the 1st quartile for X, and let B be the new variable counting those observations above the 1st quartile for Y
+
+```{r}
+A <- countDF[2,4]
+B <- countDF[3,3]
+A_B <- countDF[2,3]
+tot <- countDF[3,4]
+
+Prob_A <- A/tot
+Prob_B <- B/tot
+prob_A_B <- A_B/tot
+
+print(prob_A_B)
+```
+
+So P(AB) = 0.6534247
+
+```{r}
+Prob_A_Prob_B <- Prob_A * Prob_B
+print(Prob_A_Prob_B)
+```
+
+So P(A)P(B) = 0.5625
+
+So, here  P(AB) is NOT equal to P(A)P(B). Therefore, variable A and B are not independent and obviously splitting the training data did not make them independent.
+
+
+### Chi Square test
+
+create a matrix from the above observations 
+```{r}
+
+chiMatrix <- matrix(c(A1,B1),nrow = 2)
+chisq.test(chiMatrix)
+
+```
+
+Since the p-value is significantly smaller we can reject the null hypothesis, which agree with the above mathmatical test that the variables are dependent.
+
+
+## Descriptive and Inferential Statistics:
+
+Descriptive statistics:
+
+Subset of data from the train dataset with only numeric columns
+```{r}
+ numcolumns <- unlist(lapply(DF,is.numeric))
+
+numTrain <- DF[,numcolumns]
+
+```
+
+Descriptive statistics of all the numeric columns of train dataset:
+```{r}
+summary(numTrain)
+```
+
+###3 Visualization of data
+
+#### Scatterplot of X and Y.
+```{r}
+ggplot(XYdf, aes(X, Y))+geom_point(color="brown4")+geom_smooth(method="auto", col="red") + ggtitle("X (Gross living area) and Y (Sale price)")+xlab("X")+ ylab("Y") + scale_x_continuous(labels = comma) + scale_y_continuous(labels = comma)
+
+
+```
+
+The above scatterplot shows a positive linear relationship between X and Y but there are some outliers that forces the relationship line almost horizonatl.  
+
+
+```{r}
+ggplot(XYdf[X<4500,], aes(X, Y))+geom_point(color="brown4")+geom_smooth(method="auto", col="red") + ggtitle("X (Gross living area) and Y (Sale price)")+xlab("X")+ ylab("Y") + scale_x_continuous(labels = comma) + scale_y_continuous(labels = comma)
+
+
+```
+
+Once the outliers are removed, it does show a strong positive relationship between X and Y.
+
+
+
+Below are some Plots to visually describe some variables of the dataset:
+
+```{r}
+p1 = ggplot(numTrain, aes(LotArea,color=))+geom_freqpoly(col="red",binwidth = 4000,lwd=1,na.rm = TRUE,position = "identity") + labs(title="Frequency polygon histogram of Lot Area") + labs(x="LotArea") + theme(plot.title = element_text(size=11))
+
+p2 = ggplot(numTrain, aes(numTrain$LotFrontage,color=))+geom_histogram(col="red",binwidth = 5,lwd=1,na.rm = TRUE,position = "identity") + labs(title="histogram of Lot Frontage") + labs(x="LotFrontage")
+
+grid.arrange(p1, p2, nrow = 1)
+    
+```
+
+```{r}
+p3 = ggplot(numTrain, aes(numTrain$OverallQual))+geom_bar(col="blue", fill="brown", alpha=.2, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Overall quality rating") + labs(x="Rating")
+
+p4 = ggplot(numTrain, aes(numTrain$OverallCond))+geom_bar(col="green", fill="yellow", alpha=.2, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Overall condition rating") + labs(x="condition")
+
+grid.arrange(p3, p4, nrow = 1)
+
+```
+
+```{r}
+p5 = ggplot(numTrain, aes(numTrain$GrLivArea))+geom_histogram(col="black", binwidth = 400, fill="deeppink4", alpha=.4, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Gross Living Area") + labs(x="Area in sqft")+theme(plot.title = element_text(size=12))
+
+p6 = ggplot(numTrain, aes(numTrain$TotalBsmtSF))+geom_histogram(col="green",binwidth = 300, fill="red", alpha=.2, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Total basement area") + labs(x="Area in sqft")
+
+grid.arrange(p5, p6, nrow = 1)
+
+```
+
+```{r}
+p7 = ggplot(numTrain, aes(numTrain$BsmtUnfSF))+geom_histogram(col="black",binwidth = 300, fill="darkviolet", alpha=.2, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Total unfinished basement area") + labs(x="Area in sqft")
+
+p8 = ggplot(numTrain, aes(numTrain$MasVnrArea))+geom_histogram(col="red", binwidth = 100, fill="blue", alpha=.2, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Masonry veneer area") + labs(x="Area in sqft")
+
+grid.arrange(p7, p8, nrow = 1)
+
+```
+
+
+
+
+```{r}
+p9 = ggplot(numTrain, aes(numTrain$BsmtFullBath))+geom_bar( col="black", fill="khaki4", alpha=.4, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Full baths in basement") + labs(x="Number of full-baths")+theme(plot.title = element_text(size=12))
+
+p10 = ggplot(numTrain, aes(numTrain$BsmtHalfBath))+geom_bar( col="black", fill="orchid4", alpha=.4, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Half baths in basement") + labs(x="Number of half-baths")+theme(plot.title = element_text(size=12))
+
+grid.arrange(p9, p10, nrow = 1)
+
+```
+
+
+```{r}
+p11 = ggplot(numTrain, aes(numTrain$FullBath))+geom_bar(  fill="khaki4", alpha=.7, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Full baths") + labs(x="Number of full-baths")+theme(plot.title = element_text(size=12))
+
+p12 = ggplot(numTrain, aes(numTrain$HalfBath))+geom_bar(  fill="orangered4", alpha=.7, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Half baths ") + labs(x="Number of half-baths")+theme(plot.title = element_text(size=12))
+
+grid.arrange(p11, p12, nrow = 1)
+
+```
+
+
+```{r}
+p13 = ggplot(DF, aes(DF$KitchenQual))+geom_bar(  fill="coral4", alpha=.7, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Kitchen Quality") + labs(x="quality rating")+theme(plot.title = element_text(size=12))
+
+p14 = ggplot(DF, aes(DF$GarageQual))+geom_bar(  fill="green4", alpha=.5, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Garadge Quality") + labs(x="quality rating")+theme(plot.title = element_text(size=12))
+
+p15 = ggplot(DF, aes(DF$GarageCars))+geom_bar(  fill="green", alpha=.9, lwd=1,na.rm = TRUE,position = "identity") + labs(title="Garadge cars") + labs(x="Number of cars")+theme(plot.title = element_text(size=12))
+
+grid.arrange(p13, p14, p15,nrow = 1)
+
+```
+
+
+```{r}
+ggplot(DF, aes(DF$SalePrice))+geom_histogram( col='black', fill="grey", alpha=.7, lwd=1,na.rm = TRUE,position = "identity",binwidth = 10000) + labs(title="Sale price") + labs(x="price")+theme(plot.title = element_text(size=12)) + scale_x_continuous(labels = comma)
+
+```
+
+
+```{r}
+
+
+p16 <- ggplot(DF, aes(x = DF$TotalBsmtSF, y=DF$SalePrice))+geom_point(color="blue") + ggtitle("Basement size vs Sale price")+xlab("basement sqft")+ ylab("Sale price") +geom_smooth(method="auto", col="red") + scale_y_continuous(labels = comma)
+
+p17<- ggplot(DF, aes(x = DF$OverallCond, y=DF$SalePrice))+geom_point(color="brown4") + ggtitle("Overall condition vs Sale price")+xlab("Quality rating")+ ylab("Sale price") + scale_x_continuous(labels = comma) + scale_y_continuous(labels = comma)
+
+grid.arrange(p16, p17,nrow = 1)
+
+```
+
+The above two plots are interesting. The figure on the left shows the size of basement and the sale price have a positive corelation until the basement size  reaches around little more than 3000 sqft, then the price decreases. This probably is caused by one outlier with a very big basement. The second plot on the right depicts that the price reaches highest around the mid point of quality ratings, which correctly suggests that the house quality is one of many factors for a sale price  to go high or low. 
+
+```{r}
+
+
+p18 <- ggplot(DF, aes(x = DF$LotArea, y=DF$SalePrice))+geom_point(color="blue") + ggtitle("Living area vs Sale price")+xlab("Living area")+ ylab("Sale price") +geom_smooth(method="auto", col="red") + scale_y_continuous(labels = comma)
+
+p19<- ggplot(DF, aes(x = DF$KitchenQual, y=DF$SalePrice))+geom_point(color="brown4") + ggtitle("kitchen condition vs Sale price")+xlab("kitchen quality rating")+ ylab("Sale price") + scale_y_continuous(labels = comma)
+
+grid.arrange(p18, p19,nrow = 1)
+
+```
+
+The plot 'Lot area vs Sale price' shows a positive corelation between the variables, although the slope of the corelation line abruptly changes reaffirming some outliers. The second plot on the right shows that the really expensive houses have excellent kitchens but mid priced to low priced houses have kitchens of all quality ratings.
+
+
+### Derive a correlation matrix for any THREE quantitative variables in the dataset
+
+Three selected variables are: SalePrice,TotalBsmtSF,GrLivArea
+
+```{r}
+corDF <- DF[c('SalePrice','TotalBsmtSF','GrLivArea')]
+corMatrix <-cor(corDF,use ="complete.obs" )
+print(corMatrix)
+```
+
+The above Co-relation matrix suggests that there are strong to moderate corelation exists between these three variables. 'Saleprice' has strong corelations with 'TotalBsmtSF' and 'GrLivArea' with corelation coefficients of .61 and .708 respectively while 'TotalBsmtSF' and 'GrLivArea' have moderate corelation between them with coefficient of .45
+
+
+### Co-relation matrix visualization:
+```{r}
+corrplot(corMatrix, method = 'circle')
+
+
+```
+
+
+### Co-relation test bwteen each pair:
+
+Test between 'TotalBsmtSF' and 'SalePrice' 
+```{r}
+cor.test(DF$TotalBsmtSF, DF$SalePrice, method="pearson", conf.level = .92)
+
+```
+
+Test between 'GrLivArea' and 'SalePrice' 
+```{r}
+cor.test(DF$GrLivArea, DF$SalePrice, method="pearson", conf.level = .92)
+
+```
+
+Test between 'GrLivArea' and 'TotalBsmtSF' 
+```{r}
+cor.test(DF$GrLivArea, DF$TotalBsmtSF, method="pearson", conf.level = .92)
+
+```
+
+Corelation tests were done above for all three pairs of variables using pearson method, which estimate the association between paired samples and compute a test of the value being zero. Since all three p-values are  less than the significance level alpha = 0.08, We can conclude that each pair of those variables  are significantly correlated with  correlation coefficients showing above.
+
+### Would you be worried about familywise error?
+Yes, becuse there are many variables in this dataset that might have impact on the corelation of the the pairs of selected variables that are being tested here. Unless all other variables are not considered there is a scope for familywise error which might cause rejecting of true Null hypothesis.  
+
+
+
+## Linear Algebra and Correlation:
+
+
+#### Correlation matrix
+```{r}
+print(corMatrix)
+```
+
+#### precision matrix:
+```{r}
+preci_matrix <- solve(corMatrix)
+print(preci_matrix)
+
+```
+
+
+
+#### Multiplication of correlation matrix by the precision matrix:
+```{r}
+round((corMatrix  %*%  preci_matrix ),2)
+```
+
+#### Multiplication of precision matrix by the correlation matrix:
+```{r}
+round((preci_matrix   %*%  corMatrix),2)
+
+```
+
+Both of the above multiplications produce indentity matrix  
+
+### LU decomposition of corelation matrix:
+```{r}
+lud_cor<- lu(corMatrix)
+elu_cor <- expand(lud_cor)
+
+cor_L <- elu_cor$L
+cor_U <- elu_cor$U
+
+```
+
+#### lower triangular matrix for corelation matrix:
+```{r}
+print(cor_L)
+```
+
+#### upper triangular matrix for corelation matrix:
+```{r}
+print(cor_U)
+```
+
+
+
+### LU decomposition of precision matrix:
+```{r}
+lud_precision<- lu(preci_matrix)
+elu_precision <- expand(lud_precision)
+
+precision_L <- elu_precision$L
+precision_U <- elu_precision$U
+
+```
+
+#### lower triangular matrix for precision matrix:
+```{r}
+print(precision_L)
+```
+
+#### upper triangular matrix for precision matrix:
+```{r}
+print(precision_U)
+```
+
+
+#### Since A = LU, the abover lower and upper triangular matrices should return the origimal matrices after multiplications:
+```{r}
+ cor_L  %*% cor_U
+
+```
+
+
+```{r}
+precision_L %*% precision_U
+```
+
+As expected multiplications of L and U matrices returned their corresponding original matrices.
+
+
+## Calculus-Based Probability & Statistics
+
+Check if shifting is necessary of the X variable that was selected earlier:
+
+```{r}
+min(XYdf$X)
+```
+
+Since minimum value (334) is above zero, no shifting is necessary.
+
+
+#### run fitdistr to fit an exponential probability density function, Find the optimal value of 'lambda' for this distribution
+```{r}
+fit_expo <- fitdistr(X,densfun = "exponential")
+options(scipen=999)
+print(fit_expo$estimate)
+```
+
+#### take 1000 samples from this exponential distribution: 
+```{r}
+samples<-rexp(1000,fit_expo$estimate)
+```
+
+#### Histogram of the samples (simulated data) and the original(observed data), X :
+```{r}
+sampldata <- data.frame(samples)
+
+
+p_samples <- ggplot( sampldata, aes(samples))+geom_histogram(col="red",fill="blue",alpha=.2,binwidth =60 ) + labs(title="Histogram of Samples") + labs(x="samples")
+
+p_original <- ggplot(XYdf, aes(XYdf$X))+geom_histogram(col="red",fill="green",alpha=.2,binwidth =60 ) + labs(title="Histogram of X") + labs(x="X")
+grid.arrange(p_samples,p_original)
+
+```
+
+Both of the histograms show similar right skewed pattern but the samples (simulated data) have the highest frequency near zero it is also more skewed than the observed data. 
+
+
+
+```{r}
+
+dat <- data.frame(samples, dx=dexp(samples, rate=fit_expo$estimate))
+ggplot(dat, aes(x=samples, y=dx)) + geom_line(lwd=1, col='red')+ggtitle("exponential density of samples")
+```
+
+```{r}
+dat <- data.frame(samples, px=pexp(samples, rate=fit_expo$estimate))
+ggplot(dat, aes(x=samples, y=px)) + geom_line(lwd=1, col='red')+ggtitle("exponential distribution of samples")
+```
+
+#### find the 5th and 95th percentiles of the observed data (X)
+```{r}
+quantile(XYdf$X, probs = c(.05,0.95))
+```
+
+
+#### find the 5th and 95th percentiles of the samples (simulated data)
+
+```{r}
+# 5th percentile
+qexp(.05, fit_expo$estimate)
+
+```
+
+
+```{r}
+# 95th percentile
+qexp(.95,fit_expo$estimate)
+
+```
+
+The 5th and 95th percentiles of the observed data (X) is 848.0 and 2466.1 respectively.
+The 5th and 95th percentiles of the samples (simulated data) is 77.73313 and 4539.924 respectively.
+
+These differences in percentiles explain why the histograms of these two dataset looked different. 
+
+
+
+#### generate a 95% confidence interval from the empirical data, assuming normality:
+
+```{r}
+X_mean <- mean(XYdf$X)
+X_std <- sd(XYdf$X)
+n <- nrow(XYdf)
+se <- qnorm(0.975)*X_std /sqrt(n)
+left_interval <- X_mean -se
+right_interval <- X_mean+se
+left_interval
+right_interval
+```
+
+SO 95% confidence interval is between 1488.509 and  1542.418
+
+
+## Modeling:
+multiple regression model 
+
+only a subset of variables were selected by looking at the data that are cleaner and apperently best represent the sale price, following variables were selected. 
+```{r}
+HouseDF <- DF[,c("LotArea", "Street", "BldgType","HouseStyle" ,"OverallQual","OverallCond","YearBuilt","YearRemodAdd","MasVnrType","ExterQual", "BsmtQual","BsmtCond","BsmtExposure","BsmtFinType2","TotalBsmtSF","HeatingQC","GrLivArea", "BsmtFullBath",  "BsmtHalfBath",  "FullBath","HalfBath" , "BedroomAbvGr","KitchenQual","TotRmsAbvGrd","GarageArea", "PavedDrive", "WoodDeckSF", "OpenPorchSF", "YrSold", "SalePrice")]
+```
+
+Remove all 'NA' from the dataset:
+```{r}
+HouseDF <- na.omit(HouseDF)
+```
+
+generate a regression model
+```{r}
+model<- lm(SalePrice ~ ., data=HouseDF)
+```
+
+model statistics
+```{r}
+ summary(model)
+
+```
+
+The Multiple R-squared is 0.84, which is very good, This means 84%  variance of the sale price can be explained by predictor variables in the model. F-statistic is  114.8 and p-value is really small. To further improve the model all the variables with p-value greater than .05 will be removed using manual backward selection.
+
+Generate a second model: 
+```{r}
+model2 <- lm(SalePrice ~ LotArea + BldgType +I(HouseStyle == '1Story')+I(HouseStyle == '2.5Fin')+ I(BsmtExposure=='Gd')+I(BsmtExposure=='No')+OverallQual + OverallCond + YearBuilt + ExterQual + BsmtQual + GrLivArea + BsmtFullBath + FullBath  +HalfBath + BedroomAbvGr + KitchenQual+ TotRmsAbvGrd + GarageArea, data=HouseDF)
+```
+
+model statistics
+```{r}
+summary(model2)
+```
+
+While manual backward selection did not improve the model based on the R-squared value but the p-value of all of the predictor variables are lower than .05 (except for 'TotRmsAbvGrd' which is close to .05). So any of the models can be used for prediction. 
+
+### Prediction
+```{r}
+testData <- read.csv("test.csv",sep = ',',stringsAsFactors = FALSE)
+predictedData_model <- testData
+predictedData_model2 <- testData
+#modelColumns <- colnames(HouseDF)
+#testDF_model <- testData[,colnames(testData) %in% modelColumns]
+
+predictedData_model$salePrice <- predict(model,testData)
+predictedData_model2$salePrice <- predict(model2,testData)
+
+Id <- testData$Id
+#Kaggle dataset for model1
+salePrice <- predictedData_model$salePrice
+kaggleData_modelDF <- data.frame(cbind(Id,salePrice))
+kaggleData_modelDF[is.na(kaggleData_modelDF)] <- 0
+#write.csv(kaggleData_modelDF,'kaggleData_model.csv')
+
+#Kaggle dataset for model2
+salePrice <- predictedData_model2$salePrice
+kaggleData_modelDF2 <- data.frame(cbind(Id,salePrice))
+kaggleData_modelDF2[is.na(kaggleData_modelDF2)] <- 0
+#write.csv(kaggleData_modelDF2,'kaggleData_model2.csv')
+
+
+```
+
+
+
+below are two other models created using log transformation. Since the model stats remain almost the same as the above models they were not tested. 
+```{r}
+numbercolumns <- unlist(lapply(HouseDF,is.numeric))
+numDF <- HouseDF[,numbercolumns]
+numDF$SalePrice <- NULL
+scaledDF <- as.data.frame( log(numDF+1))
+categoryDF <- HouseDF[,!colnames(HouseDF)  %in% colnames(scaledDF)]
+
+finalDF <- cbind(categoryDF,scaledDF)
+
+model3 <- lm(SalePrice ~ .,data = finalDF)
+
+
+
+```
+
+```{r}
+summary(model3)
+```
+
+
+```{r}
+model4 <- lm(SalePrice ~ LotArea + I(BldgType=='Duplex') +I(HouseStyle == '1Story')+ I(BsmtExposure=='Gd')+I(BsmtExposure=='No')+OverallQual + OverallCond + YearBuilt + ExterQual + BsmtQual + GrLivArea + BsmtFullBath + FullBath  +HalfBath + BedroomAbvGr + KitchenQual , data=finalDF)
+```
+
+```{r}
+summary(model4)
+```
+
+### Kaggle username: kmehdi2017
+### Team name: Mehdi Khan
+### Score for first model: 2.50090
+### Score for second model:2.15646
